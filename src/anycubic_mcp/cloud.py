@@ -47,9 +47,10 @@ class AnycubicCloud:
             "XX-Nonce": nonce,
             "XX-Timestamp": ts,
             "XX-Signature": sign(ts, nonce, self.version),
-            "Xx-Device-Type": "web",
+            "Xx-Device-Type": "pcf",
             "Xx-Is-Cn": "1",
-            "XX-LANGUAGE": "zh-cn",
+            "XX-Version": self.version,
+            "XX-LANGUAGE": "zh-CN",
             "Content-Type": "application/json",
         }
 
@@ -165,7 +166,10 @@ class AnycubicCloud:
         j = self.call("GET", f"/v2/project/printHistory?page={page}&limit={limit}")
         if j.get("code") != 1:
             raise RuntimeError(f"printHistory failed: {j.get('msg')}")
-        return (j.get("data") or {}).get("list") or []
+        d = j.get("data")
+        if isinstance(d, dict):
+            return d.get("list") or []
+        return d or []
 
     def projects(self) -> list[dict]:
         j = self.call("GET", "/work/project/getProjects")

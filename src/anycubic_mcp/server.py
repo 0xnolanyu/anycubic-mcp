@@ -54,7 +54,7 @@ def _mapping(printers_payload: dict, slots: list[int]) -> list[dict]:
 
 # ---------------------------------------------------------------- tools ----
 
-@mcp.tool
+@mcp.tool()
 def printer_status() -> dict:
     """Printer live status: busy/idle, temps, clean-plate flag, firmware."""
     d = _api().printers_status([_cfg["printer_id"]])[0]
@@ -66,7 +66,7 @@ def printer_status() -> dict:
             "firmware": d.get("version", {}).get("firmware_version")}
 
 
-@mcp.tool
+@mcp.tool()
 def print_history(page: int = 1, limit: int = 20) -> dict:
     """Recent print jobs (name/state/progress/times) — use to avoid duplicates."""
     rows = _api().print_history(page, limit)
@@ -78,7 +78,7 @@ def print_history(page: int = 1, limit: int = 20) -> dict:
     return {"items": out}
 
 
-@mcp.tool
+@mcp.tool()
 def bed_photo(vision: bool = True) -> dict:
     """Capture one camera frame; optionally run the vision bed-check."""
     c = _api()
@@ -89,13 +89,13 @@ def bed_photo(vision: bool = True) -> dict:
     return {"frame": frame, **v}
 
 
-@mcp.tool
+@mcp.tool()
 def upload_gcode(file: str) -> dict:
     """Upload a G-code file to Anycubic cloud; returns cloud_file_id."""
     return {"cloud_file_id": _api().upload_gcode(file)}
 
 
-@mcp.tool
+@mcp.tool()
 def send_print_job(file: str, slots: list[int], *, skip_vision: bool = False,
                    force: bool = False) -> dict:
     """Precheck (busy/vision/clean-plate) -> upload -> start print. Safe default."""
@@ -116,7 +116,7 @@ def send_print_job(file: str, slots: list[int], *, skip_vision: bool = False,
     return {"ok": True, "cloud_file_id": fid, "precheck": pre["msg"]}
 
 
-@mcp.tool
+@mcp.tool()
 def cancel_print() -> dict:
     """Cancel the current print job."""
     return {"ok": True, "result": _api().cancel_print(_cfg["printer_id"])}
@@ -124,7 +124,7 @@ def cancel_print() -> dict:
 
 # ------------------------------------------------------- local queue ----
 
-@mcp.tool
+@mcp.tool()
 def queue_add(file: str, slots: list[int], note: str = "") -> dict:
     """Append a job to the local queue."""
     global _queue
@@ -133,18 +133,18 @@ def queue_add(file: str, slots: list[int], note: str = "") -> dict:
     return {"queued": t["id"], "file": file}
 
 
-@mcp.tool
+@mcp.tool()
 def queue_list() -> dict:
     return {"items": Queue(_cfg["queue_file"]).items}
 
 
-@mcp.tool
+@mcp.tool()
 def queue_remove(id: int) -> dict:
     q = Queue(_cfg["queue_file"])
     return {"removed": q.remove(id)}
 
 
-@mcp.tool
+@mcp.tool()
 def queue_process() -> dict:
     """One queue iteration (safe to call on a timer)."""
     q = Queue(_cfg["queue_file"])

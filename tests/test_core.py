@@ -43,3 +43,15 @@ def test_vision_parser():
     desc2 = "FALSE\n有物体"
     first2 = desc2.strip().splitlines()[0].strip().lower()
     assert first2.startswith("true") is False
+
+
+def test_cloud_headers_carry_version_and_device():
+    """Regression: printersStatus 51000 without Xx-Device-Type: pcf + XX-Version."""
+    import sys
+    sys.path.insert(0, "src")
+    from anycubic_mcp.cloud import AnycubicCloud
+    c = AnycubicCloud("t", version="2.0.0.6")
+    h = c._headers()
+    assert h["Xx-Device-Type"] == "pcf"
+    assert h["XX-Version"] == "2.0.0.6"
+    assert h["XX-Signature"] and h["XX-Nonce"] and h["XX-Timestamp"]
