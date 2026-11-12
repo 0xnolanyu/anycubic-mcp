@@ -114,6 +114,18 @@ entry: `spool_index`, `filament_used`, `material_type`, `color_red/green/blue`,
   `CloudClient::requestBatchPrint(BatchPrintTask const*)`,
   `TaskListRequest`. Response/history keys nearby: `print_number, user_id,
   status, print_time, estimate, total_layers, supplies_usage`.
+- Live probe result (2026-11-12): all 13 farm endpoints enumerated;
+  message/{list,latest,info,statistics}, group/list respond correctly, but
+  both createBulkTask variants return `51000 missing mandatory public
+  parameter` regardless of data[] shape, extra body keys (page/limit/user_id),
+  headers (Request-Id/Trace-Id/App-Version), device types (web/pcf/android)
+  or signature versions (1.0.0/2.0.0.6). The missing "public parameter" is
+  not in the probed space — schema still unknown. Full string-table dump of
+  the serializer block (file offsets 0x646800-0x647400) is preserved above;
+  candidate keys not yet placed: `drying_settings, slice_result, project_ids,
+  md5, is_temp_file, empty_group_id, group_type, get_all, thumbnail`.
+  Until the schema is cracked, use the local queue (queue.py) which is fully
+  functional; farm native queue remains a stretch goal.
 
 ## 4. Camera (Agora RTC)
 
