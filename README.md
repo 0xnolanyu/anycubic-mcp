@@ -61,6 +61,15 @@ multimodal endpoint for the vision verdict (local Ollama works).
 - [native/README.md](native/README.md) — building `kx_cam.exe`
 - [examples/dsh/](examples/dsh/) — dsh `mcp-registry` relay shim
 
+## Roadmap
+
+- `PrinterAdapter` protocol: the queue executor talks to a printer only via
+  status/upload/start/cancel/history. Anycubic cloud is the first adapter;
+  Bambu/Klipper/Moonraker adapters can reuse the same queue, safety checks
+  (vision bed-photo veto) and MCP surface as-is.
+- Frida-assisted capture of the farm `createBulkTask` body (community help
+  welcome) — the local queue already covers single-printer workflows.
+
 ## License
 
 MIT. The signature salts are extractable from any official client binary;
