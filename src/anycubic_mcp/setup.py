@@ -17,7 +17,6 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
 from .cloud import AnycubicCloud  # noqa: E402
 from .config import DEFAULT_DIR, write_example  # noqa: E402
 
@@ -61,20 +60,35 @@ def _scan_access_token() -> str | None:
             if any(t and exe.startswith(t.rsplit(".", 1)[0]) for t in targets) or \
                "anycubic" in exe:
                 pid = pe.th32ProcessID
-                h = k32.OpenProcess(0x10 | 0x043A, False, pid)  # PROCESS_VM_READ|QUERY
+                h = k32.OpenProcess(0x10 | 0x043A, False, pid)  # VM_READ|QUERY
                 if h:
+                    import time as _t
+                    try:
+                        _deadline
+                    except NameError:
+                        _deadline = _t.monotonic() + 25.0
                     buf = ctypes.create_string_buffer(1 << 20)
                     addr = ctypes.c_size_t(0)
                     mbi = ctypes.create_string_buffer(56)
-                    while ctypes.windll.kernel32.VirtualQueryEx(h, ctypes.byref(addr), mbi, 56):
-                        n = k32.ReadProcessMemory(h, ctypes.byref(addr), buf, 1 << 20, None)
-                        if n:
-                            data = buf.raw[:n]
-                            for m in re.finditer(rb"eyJ[A-Za-z0-9_\-]{80,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{20,}", data):
-                                found.append(m.group().decode())
-                                if len(found) > 4:
-                                    break
-                        addr = ctypes.c_size_t(addr.value + (1 << 20))
+                    while k32.VirtualQueryEx(h, ctypes.byref(addr), mbi, 56):
+                        if _t.monotonic() > _deadline:
+                            break  # huge process: give up after 30 s
+                        state = mbi.raw[12]
+                        protect = int.from_bytes(mbi.raw[20:24], "little")
+                        size = int.from_bytes(mbi.raw[32:40], "little") or 0x1000
+                        if state == 0x1000 and protect in (0x04, 0x40, 0x02, 0x20) and size <= (64 << 20):
+                            for ofs in range(0, size, 1 << 20):
+                                n = k32.ReadProcessMemory(h, ctypes.byref(
+                                    ctypes.c_size_t(addr.value + ofs)), buf, 1 << 20, None)
+                                if n:
+                                    data = buf.raw[:n]
+                                    m = re.search(rb"eyJ[A-Za-z0-9_\-]{80,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{20,}", data)
+                                    if m:
+                                        found.append(m.group().decode())
+                                        break
+                        addr = ctypes.c_size_t(addr.value + size)
+                        if found:
+                            break
                     k32.CloseHandle(h)
             if len(found) > 4:
                 break
