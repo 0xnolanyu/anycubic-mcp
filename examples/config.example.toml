@@ -1,0 +1,27 @@
+# Auto-generated config example — copy to ~/.anycubic-mcp/config.toml
+# (anycubic-setup writes this for you; see README)
+
+[cloud]
+# Path is resolved relative to the config dir (~/.anycubic-mcp)
+session_token_file = "session_token.txt"
+# Or set env ANYCUBIC_TOKEN directly
+
+[printer]
+# numeric cloud printer id (anycubic-setup lists yours)
+id = 0
+
+[camera]
+enabled = true
+# absolute path to the built kx_cam.exe (native/README.md)
+kx_cam_exe = ""
+
+[vision]
+# Any OpenAI-compatible multimodal endpoint (base_url + model + api_key).
+# Examples: http://192.168.x.x:4000/v1 with deepseek-v4.1-flash-ark via
+# LiteLLM, or http://127.0.0.1:11434/v1 with qwen2.5vl via Ollama.
+base_url = ""
+model = ""
+api_key = "none"
+
+[queue]
+file = "queue.json"

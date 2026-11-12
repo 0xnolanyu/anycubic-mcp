@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+native/*.dll
+native/*.exe
+native/*.lib
+native/*.exp
+native/cfg.json
+native/cam_cpp.jpg
