@@ -44,6 +44,7 @@ description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片�
 4. `check_placement` 用世界坐标判 fits（不扣板 origin 312 偏移），小床误报可忽略，以切片成功为准。
 
 ## 换料对齐与槽位防呆（南瓜灯事故后新增，必守）
+- **云端槽色直读**（getPrinters 破解后新增）：`/work/printer/getPrinters` 返回 data[0].color 前4槽 RGB（-2,-2,-2=空）。kx_rack() 工具直读；_slot_map 优先云端真色回退台账；kx_send(expect={槽号:期望hex}) 发送前色距>150 拦截（stage=rack_colour）。
 - **料架台账** `脚本/kx_rack.json`：槽号→颜色名+hex，用户每次换料口述后立即更新。
 - **slots 顺序语义**：库把 mapping 按槽号排序后关联 T0..Tn，**T(i) ↔ sorted(slots)[i]**，传乱序无效（南瓜灯 [3,0]≡[0,3] 事故实锤）。_start 已自动 sort，kx_send 回执带 slot_map「T0 -> 槽1(橙黄)」。
 - **Orca 显示色对齐**：切完后 set_config filament_colour=台账 hex（分号分隔），使 Orca 截图显示=真实料架颜色，用户可人工核对。send 前把 slot_map 与截图一起给用户。
