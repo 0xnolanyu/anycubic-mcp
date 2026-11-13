@@ -1,5 +1,6 @@
 ---
 name: kx-print-pipeline
+user-invocable: true
 description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片策略（逐层/逐件/分板决策树）、逐件模式 150mm 间距规则、首层散点图+T序列双验证、发送五查防呆、slots 基数、API 链路等实机验证教训。当任务涉及 KX/Anycubic 多色打印、Orca MCP 切片、发送 G-code 到打印机、排查打印事故时使用。
 ---
 
