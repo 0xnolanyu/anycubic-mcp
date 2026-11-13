@@ -43,6 +43,11 @@ description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片�
 3. `move_object_to_plate` 只改板归属**不重排 XY**——移板后必跑 orca_layout check 或 verify_gcode（曾因此糊板报废）。
 4. `check_placement` 用世界坐标判 fits（不扣板 origin 312 偏移），小床误报可忽略，以切片成功为准。
 
+## 换料对齐与槽位防呆（南瓜灯事故后新增，必守）
+- **料架台账** `脚本/kx_rack.json`：槽号→颜色名+hex，用户每次换料口述后立即更新。
+- **slots 顺序语义**：库把 mapping 按槽号排序后关联 T0..Tn，**T(i) ↔ sorted(slots)[i]**，传乱序无效（南瓜灯 [3,0]≡[0,3] 事故实锤）。_start 已自动 sort，kx_send 回执带 slot_map「T0 -> 槽1(橙黄)」。
+- **Orca 显示色对齐**：切完后 set_config filament_colour=台账 hex（分号分隔），使 Orca 截图显示=真实料架颜色，用户可人工核对。send 前把 slot_map 与截图一起给用户。
+
 ## 发送五查（anycubic-mcp 已内置，缺一不可）
 
 send_print_job 自动执行：①is_printing==1（1=空闲待命，2=忙碌）②视觉清盘（Agora 截帧→litellm deepseek-v4.1-flash，true/false 严格协议：首行只回小写 true/false）③历史查重（同名 finished→拒；stoped→放行=需重打）④耗材映射（**slots 1 基**为公共接口语义；API 0 基转换只在 _slots_to0 内部发生）⑤上传链路 lockStorageSpace→PUT preSignUrl→newUploadFile→5×3s 重试避开 No slicer found→sendOrder。
