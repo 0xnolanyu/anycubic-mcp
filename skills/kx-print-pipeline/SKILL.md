@@ -24,6 +24,14 @@ description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片�
 - 摆盘防重叠：`E:\workspaces\dsh\3d打印\脚本\orca_layout.py`（check/fix/move）
 - G-code 源目录：C:\Users\Administrator\.orcaslicer-mcp\gcode\（save_gcode 固定写这里，再复制到工作区）
 
+
+### 切片警告门（必执行）
+切片完成后**必须**调 MCP `get_slice_warnings` 拉取 Orca 全部警告/错误，逐条处理完才算完成：
+- slice 失败（如「对象太近会碰撞」）：必须消除（调布局/参数重切）或给出量化安全证据（G-code 轨迹点距离验证）并**向用户列出警告+依据，用户同意后才可绕过**——禁止静默放宽 extruder_clearance_radius 绕过后不告知。
+- slice 成功但有警告：逐条定性。无害可放行（如 bed_temperature_too_high 对开放机箱、not_generate_timelapse），但要在交付说明里列出；level>=3 或 error 级必须消除。
+- `out_of_date: true` 的结果不能引用，须重切后再拉警告。
+- 原则：Orca 的提示=前人踩坑经验，宁可误报不可漏报；绕过必须有量化证据+用户知情。
+
 ## 切片参数（KX 预设必改项）
 
 - 预设「Anycubic Kobra X 0.4 nozzle」+「0.16/0.20mm」工艺：默认速度超流量上限（check_profile_physics 报 flow_ceiling fail）。降速表：gap_infill/sparse_infill/internal_solid_infill=170、inner_wall=180、outer_wall/top_surface=140、initial_layer=45。
