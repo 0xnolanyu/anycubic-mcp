@@ -48,11 +48,25 @@ multimodal endpoint for the vision verdict (local Ollama works).
 | --- | --- |
 | `printer_status` | busy/idle, temps, clean-plate flag, firmware |
 | `bed_photo` | capture one frame; optional AI verdict `true/false` |
+| `verify_gcode` | first-layer scatter + tool-sequence check — catches stacked plates & wrong colors **before** sending |
 | `upload_gcode` | upload a file, returns `cloud_file_id` |
-| `send_print_job` | prechecks → upload → start (the safe default) |
+| `send_print_job` | prechecks → upload → start (the safe default); `dry_run=True` returns the checklist without sending |
 | `cancel_print` | cancel current job |
 | `print_history` | recent jobs to avoid duplicates |
 | `queue_add/list/remove/process` | local queue (timer-friendly) |
+
+### Slot numbering (1-based, human semantics)
+
+`slots` everywhere means **human numbering**: `[1]` = first spool slot, `[3]` =
+third. The 0-based wire format is an internal detail — every send/queue result
+echoes a `slot_map` so you can see exactly which spool was used. This exists
+because a 0/1-based mix-up caused two real misprints.
+
+### dry_run — look before you send
+
+`send_print_job(..., dry_run=True)` runs every gate (busy / vision / duplicate
+history / first-layer verify) and returns a checklist. Nothing is uploaded or
+started. Point it at any new G-code before committing filament.
 
 ## Documentation
 
