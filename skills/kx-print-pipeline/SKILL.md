@@ -1,3 +1,6 @@
+## 发送前人工确认门（m16135）
+队列任务五查+槽色核对全过后置 **ready_confirm**，不自动发送；等用户明确说「确认/发送」才调用 `kx_queue_confirm(qid)` 真发。半点轮询 prompt 已同步：ready_confirm 必须通知用户，绝不自行确认。
+
 ---
 name: kx-print-pipeline
 user-invocable: true
