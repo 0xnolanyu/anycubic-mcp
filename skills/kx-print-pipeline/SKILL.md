@@ -37,6 +37,7 @@ description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片�
 
 ## 交付前双验证（必做，已有工具）
 
+0. **排板完成必发编辑视图截图给用户（用户明令 m15886）**：`render_plate(view=editor, frame=plate, angle=iso)` → base64 解码存 `_tmp3d/<名>_plate_iso.png` → present 给用户；再投 101 litellm deepseek-v4.1-flash 复核（首行 true/false：互不重叠且在板内）。注意渲染显示色是软件默认色非实际料色，须向用户说明。
 1. **verify_gcode**（anycubic-mcp 内置）：首层散点聚类 + 工具同区互渗检测（≥50% 互渗率判重叠；擦料塔是多工具共用区不会误报）。糊板事故文件 ok=False，好版 ok=True，4 真样本验证。
 2. **T 序列统计**：verify_gcode 返回 t_sequence + tool_changes，对照预期色→槽映射。
 3. `move_object_to_plate` 只改板归属**不重排 XY**——移板后必跑 orca_layout check 或 verify_gcode（曾因此糊板报废）。
