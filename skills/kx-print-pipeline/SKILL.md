@@ -54,7 +54,7 @@ description: KX（Anycubic Kobra X）多色打印全流程经验：Orca 切片�
 
 ## 交付前双验证（必做，已有工具）
 
-0. **排板完成必发编辑视图截图给用户（用户明令 m15886）**：`render_plate(view=editor, frame=plate, angle=iso)` → base64 解码存 `_tmp3d/<名>_plate_iso.png` → present 给用户；再投 101 litellm deepseek-v4.1-flash 复核（首行 true/false：互不重叠且在板内）。注意渲染显示色是软件默认色非实际料色，须向用户说明。
+0. **排板完成必发编辑视图截图给用户（用户明令 m15886）**：`render_plate(view=editor, frame=plate, angle=iso)` → base64 解码存 `_tmp3d\<名>_plate_iso.png` → present 给用户；再投 101 litellm deepseek-v4.1-flash 复核（首行 true/false：互不重叠且在板内）。注意渲染显示色是软件默认色非实际料色，须向用户说明。
 1. **verify_gcode**（anycubic-mcp 内置）：首层散点聚类 + 工具同区互渗检测（≥50% 互渗率判重叠；擦料塔是多工具共用区不会误报）。糊板事故文件 ok=False，好版 ok=True，4 真样本验证。
 2. **T 序列统计**：verify_gcode 返回 t_sequence + tool_changes，对照预期色→槽映射。
 3. `move_object_to_plate` 只改板归属**不重排 XY**——移板后必跑 orca_layout check 或 verify_gcode（曾因此糊板报废）。
@@ -82,3 +82,34 @@ send_print_job 自动执行：①is_printing==1（1=空闲待命，2=忙碌）�
 - dsh-ops exec-tree 损坏（并发 bug）：job_kill 全部自建 job → `node dsh-ops.mjs cache reclaim --kind exec-tree --all-hosts-stopped --yes`。
 - 视觉模型：qwen2.5vl:3b 描述性幻觉严重（弃用）；用 litellm deepseek-v4.1-flash。摄像头色彩失真（红→蓝）——只判有无，不判颜色。
 - 打印中勿切 LAN 模式（断云+断任务）；U 盘只认 .gcode、英文数字名、目录≤2 层。
+
+## 塔与件碰撞检查（每次带塔切片必做，勿等用户提醒）
+- 塔的真实范围 ≠ 配置里的 wipe_tower_x：从 G-code `;TYPE:Prime` 段提取塔实际 X/Y bbox 与最高 Z（prime_tower_width 默认 30mm，实际占地常达 40×45mm）。
+- 判据：**最后打的件**（或任何与塔同高/更高的件）距塔边缘欧氏距离 ≥65mm（喷嘴组件扫掠半径），建议 ≥80mm；塔高通常=最高换料件高度。
+- 同时复查高件对：后打件全部轨迹点到先打高件（>30mm）bbox 的欧氏距离 >65mm（L∞ 口径会漏判，南瓜灯 62mm 撞件实证）。
+- Orca 自动摆塔不做件距校验，塔位贴件时用 transform_object 挪件（挪矮件/最后打的件，别动先打高件）。
+- 示例脚本（塔 bbox + 件距 + 高件对间距三合一）：见本 skill 仓库 verify 脚本的 tower_check 模式。
+
+## 发送前四项强制报告（用户 m19391 定死）
+
+每次调整建模文件、每次打印发送之前，必须向用户报告以下四项，缺一不可：
+
+1. **逐件/逐层 + 料塔**：print_sequence 实测值（以 G-code 对象标记块状验证为准，不信切片器显示）+ 是否有擦料塔（;TYPE:Prime 段实测）
+2. **碰撞检查结果**：两两边缘距（高件对 >65mm 安全线）、塔与最后打件距离（>65mm）、by object 回退检查（旧 Bambu 工程碰撞失败会静默回退逐层！对象标记必须块状非交替）
+3. **颜色映射表**：每件 → T 指令 → 槽位 → 实物卷色（单工具文件恒槽1；多色 T=槽号-1；云端槽色是记录值，以用户口述/目视为准）
+4. **分板策略**：每板几件几色、换料次数、预计时间/耗材
+
+未报全四项不得发送。
+
+## 首层附着检查（第七查，2026-11-16 山竹绿叶粘头事故固化）
+- 事故：星形叶首层覆盖 9% 细臂 + no_brim → 103 层被撬起粘头。黑件 37% 实心块同板稳过=对比铁证。
+- 判据（verify_first_layer_anchoring，按件独立检查其起始层）：brim>0 → PASS；brim=0 且 body<100 → BLOCK（细臂裸打，不可 force）；brim=0 且 support>body×2 → WARN。
+- 细臂/星形/辐条/圆环件切片必加：brim_type=outer_only + brim_width=8（注意合法值是 outer_only，不是 outer_brim）。
+- 单件工程的对象工具号不重编号（extruder=4 切出来就是 T3，发送 slots 按 T 序传 0 基索引即可）。
+- 回测：事故板 BLOCK 精准命中绿件；南瓜灯/旋风豌豆/魅惑菇/沥水篮全 PASS 零误杀。
+
+## Orca 重启后 token 全流程（Next 2.0.0.6）
+- Next 重启后云 C++ 模块不自启（cloud_sdk_cpp 日志 0 字节）——请用户点开工作台/云文件页激活，再 memscan。
+- memscan 正则长度上限要 >1300（论坛 RS256 token 1265 会混入）；真会话 token 是 236 长度 ['jwt','xtoken'] 那个。
+- 双 token 文件必须同步写同一个 236：_tmp3d/anycubic_session_token.txt（自研 _api）与 _tmp3d/anycubic_token.txt（库上传链路）——只写一个分别报「登录信息失效」或「Authentication failed」。
+- 对象 id 每次新建工程递增，猜 id 必 unknown_object——先 list_objects。
