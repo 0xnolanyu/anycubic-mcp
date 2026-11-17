@@ -103,10 +103,20 @@ send_print_job 自动执行：①is_printing==1（1=空闲待命，2=忙碌）�
 
 ## 首层附着检查（第七查，2026-11-16 山竹绿叶粘头事故固化）
 - 事故：星形叶首层覆盖 9% 细臂 + no_brim → 103 层被撬起粘头。黑件 37% 实心块同板稳过=对比铁证。
-- 判据（verify_first_layer_anchoring，按件独立检查其起始层）：brim>0 → PASS；brim=0 且 body<100 → BLOCK（细臂裸打，不可 force）；brim=0 且 support>body×2 → WARN。
+- 判据（verify_first_layer_anchoring 第三版，按件独立检查其起始层）：brim>0 → PASS；body<=2 且 sup>=50 → WARN（弧底小件=支撑锚定，如眼球）；body>20 且 sup>=body×3 且 sup>=200 → WARN（弧壳宽边+支撑网主导，如山竹红身）；brim=0 且 body<100 → BLOCK（细臂裸打，不可 force）。
+- 物理依据：body>20=壳边是宽连续线（支撑网格可锚定）；body 稀疏点状细臂支撑救不了（绿叶事故实证：当年 body=10 且有支撑照样剥落）。
 - 细臂/星形/辐条/圆环件切片必加：brim_type=outer_only + brim_width=8（注意合法值是 outer_only，不是 outer_brim）。
+- brim 对纯支撑首层不生成（brim 依附模型轮廓，弧底全支撑件 auto 判不需要）——这类件靠支撑网锚定。
 - 单件工程的对象工具号不重编号（extruder=4 切出来就是 T3，发送 slots 按 T 序传 0 基索引即可）。
-- 回测：事故板 BLOCK 精准命中绿件；南瓜灯/旋风豌豆/魅惑菇/沥水篮全 PASS 零误杀。
+- 回测：事故板 BLOCK 精准命中绿件；南瓜灯/旋风豌豆/魅惑菇/沥水篮全 PASS 零误杀；红身/眼球 WARN 放行。
+
+## Bambu 工程 by object 六连败与 add_plate 破局（2026-11-17 裂瓣花固化）
+- 症状：Bambu 工程去脚本副本 open_project 后，set_config 主包/单包、apply_and_slice、工程注入（重打包 config print_sequence）、间距重摆、print 预设切换——**全部无效，切片永远逐层**（判据：T 事件 47-48 次 vs by-object 应为换色数；首层多件同印；对象标记交替 89 次）。
+- 根因：**原 Bambu 工程的旧打印板带锁死的板级 by-layer 配置，全局 set_config 被板级覆盖**。
+- 破局：`add_plate` 新建一块干净板 → move_object_to_plate 把件搬进去 → 全局 by object 直通生效（第八次实验证实）。
+- 判别法：切完 grep T 事件计数——by-object 板 T 事件=换色次数（N 色 N-1 次左右），逐层板 T 事件=每层换色累计（几十次）。
+- 关联坑：new_project+load_model 路线在该批 STL 上有「正在对网格切片」卡 5% 死锁暗病（6 实例全卡）；open_project 旧板是稳妥路线但 by object 必须 add_plate。
+- move 到不存在的板静默失败（unknown_plate 在 driver 批里不报错）——move 后必须 list_objects 复核板归属。
 
 ## Orca 重启后 token 全流程（Next 2.0.0.6）
 - Next 重启后云 C++ 模块不自启（cloud_sdk_cpp 日志 0 字节）——请用户点开工作台/云文件页激活，再 memscan。

@@ -377,6 +377,20 @@ def verify_first_layer_anchoring(path: str) -> dict:
     for name, st in seen.items():
         if st['brim'] > 0:
             verdict, reason = 'PASS', f"brim={st['brim']}"
+        elif st['body'] <= 2 and st['support'] >= 50:
+            # support-anchored start (curved-bottom part like an eyeball):
+            # the support lattice is bed-anchored with real line width and
+            # real footprint; not the same as a bare thin arm.
+            verdict, reason = 'WARN', (f"support-anchored start: sup={st['support']} body=0 "
+                                       "(support lattice anchors the bed contact)")
+        elif st['body'] > 20 and st['support'] >= st['body'] * 3 and st['support'] >= 200:
+            # support-dominant start (curved shell like shanzhu red body):
+            # the support lattice grid IS the bed anchor (sup >> body, and
+            # body>20 means the shell edge itself is a wide continuous line,
+            # not sparse thin arms which support cannot save -- see the
+            # 2026-11-16 shanzhu leaf accident: body=10 support present, peeled).
+            verdict, reason = 'WARN', (f"support-dominant start: sup={st['support']} "
+                                       f"body={st['body']} (support grid anchors the bed)")
         elif st['body'] < BODY_MIN:
             verdict, reason = 'BLOCK', (f"no brim, body={st['body']}<{BODY_MIN} thin-part bare first layer "
                                         "(2026-11-16 shanzhu leaf peeled off at this pattern)")
