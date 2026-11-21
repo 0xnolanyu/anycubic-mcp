@@ -217,3 +217,13 @@ sidecar `<gcode>.colourmap.json` 是必需的一环：没有它只能核对 C，
 - **货架排版 gap 必须 80mm**：60mm 会被 Orca 判「离其它对象太近」直接 422。`PACK_GAP` 环境变量可调。
 - **逐件最高 Z 只能按挤出移动算**：见 Z 就记会把空驶抬升算成件高（74mm 矮件误报 74）。`print_gate.py` 用 `z_last` + 只在带 `E` 的移动时更新 `zmax`。
 - **`EXCLUDE_OBJECT_START` 在逐件模式下每层每件都出现**，按「首次出现」去重才是真打印顺序；`EXCLUDE_OBJECT_END` 行**没有前导分号**，匹配要 `re.match(r";?EXCLUDE_OBJECT_END")`。
+
+## 扫床路径（2026-11-22 撞机事故固化，第六项 + 第十查）
+
+- gcode 里**没有 G28**：归零/归位由固件与云端 `G9111` 负责，第一条移动就是 `G1 X.. Y..` 且 Z 仍是 0.2
+  → 归位后喷嘴**贴着床面直奔件起点**，床上任何残留都会被剐。
+- `print_gate.py` 第六项 `parse_sweep()` 输出：起点段次数/XY 覆盖/最低 Z、收尾停放段长度与 Z、`requires_empty_bed`。
+  收尾段在低于件高的 Z 上走 >5mm → FAIL。
+- `kx_send` 第十查：`requires_empty_bed=True` 时，`force_clean`/`skip_vision` 必须配 `clean_confirmed="人工确认床空 时间"`，
+  否则 `stage=clean_unconfirmed` 拒发——不允许再靠"我看帧觉得空"绕过。
+- **上一单的件留在床上就别发下一单**：45.8mm 蓝件留在床上发白件，开工即剐。

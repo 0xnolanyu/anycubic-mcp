@@ -88,6 +88,73 @@ def _gap(a, b):
     return math.hypot(dx, dy), dx, dy
 
 
+def parse_sweep(path: str) -> dict:
+    """起点/收尾横扫路径实测（第六项检查的数据源）。
+
+    起点段 = EXECUTABLE_BLOCK_START 到第一次挤出之间的全部移动；收尾段 = 最后一次挤出之后的移动。
+    这一段既不在换料点、也不在件间抬 Z 的覆盖里，正是"上一单的件留在床上，这一单开工把它剐了"的地方。
+    """
+    cur = {"x": None, "y": None, "z": None}
+    start, tail, n_ext, homing = [], [], 0, False
+    started = False
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            s = line.strip()
+            if not s or s[0] == ";":
+                continue
+            g = s.split()[0].upper()
+            if g == "G28":
+                homing = True
+                continue
+            if g not in ("G0", "G1"):
+                continue
+            x, y, z, e = cur["x"], cur["y"], cur["z"], None
+            for tok in s.split()[1:]:
+                k, v = tok[0].upper(), tok[1:]
+                try:
+                    v = float(v)
+                except Exception:
+                    continue
+                if k == "X":
+                    x = v
+                elif k == "Y":
+                    y = v
+                elif k == "Z":
+                    z = v
+                elif k == "E":
+                    e = v
+            pt = (x, y, z)
+            extruding = e is not None and e > 0
+            if not started:
+                start.append(pt)
+                if extruding:
+                    started, n_ext = True, 1
+            elif extruding:
+                tail, n_ext = [], n_ext + 1
+            else:
+                tail.append(pt)
+            cur["x"], cur["y"], cur["z"] = x, y, z
+
+    def _stat(pts):
+        xs = [p[0] for p in pts if p[0] is not None]
+        ys = [p[1] for p in pts if p[1] is not None]
+        zs = [p[2] for p in pts if p[2] is not None]
+        L, prev = 0.0, None
+        for p in pts:
+            if prev and None not in (prev[0], prev[1], p[0], p[1]):
+                L += math.hypot(p[0] - prev[0], p[1] - prev[1])
+            prev = p
+        return {"n": len(pts),
+                "xmin": min(xs) if xs else None, "xmax": max(xs) if xs else None,
+                "ymin": min(ys) if ys else None, "ymax": max(ys) if ys else None,
+                "zmin": min(zs) if zs else None, "len_mm": round(L, 1)}
+
+    st, en = _stat(start), _stat(tail)
+    requires_empty = bool(st["n"]) and (st["zmin"] is None or st["zmin"] < CLEAR_HEIGHT_TO_ROD)
+    return {"start": st, "end": en, "homing": homing, "extrusions": n_ext,
+            "requires_empty_bed": requires_empty}
+
+
 def check(gcode: str, slots: list[int], accept_any: list[int] | None = None,
           table: dict | None = None) -> dict:
     accept_any = list(accept_any or [])
@@ -155,10 +222,32 @@ def check(gcode: str, slots: list[int], accept_any: list[int] | None = None,
     except Exception as e:
         fails.append(f"[颜色] 颜色核对执行失败: {type(e).__name__}: {e}")
 
+    # ---- 6. 扫床路径（起点斜穿 / 收尾停放）----
+    sweep, requires_empty = None, False
+    try:
+        sweep = parse_sweep(gcode)
+        st, en = sweep["start"], sweep["end"]
+        maxz = max([o["zmax"] for o in objs] or [0.0])
+        info["sweep"] = sweep
+        if st["n"] > 1 and st["xmin"] is not None:
+            warns.append(
+                "[扫床] 起点段 %d 次移动集中在 X%.1f-%.1f / Y%.1f-%.1f、最低 Z=%s；gcode 里没有可见的归零/归位段"
+                "（由固件与云端 G9111 负责），即归位后喷嘴贴着床面直奔 (%.1f, %.1f) —— 床上任何残留都会被剐，"
+                "本次开打要求空盘"
+                % (st["n"], st["xmin"], st["xmax"], st["ymin"], st["ymax"], st["zmin"],
+                   st["xmax"], st["ymax"]))
+        if en["len_mm"] > 5.0 and en["zmin"] is not None and en["zmin"] < maxz:
+            fails.append("[扫床] 收尾在 Z=%s（低于件高 %.1f）还走了 %.1fmm，可能剐到本单自己的件"
+                         % (en["zmin"], maxz, en["len_mm"]))
+        requires_empty = bool(sweep["requires_empty_bed"])
+    except Exception as e:
+        fails.append("[扫床] 扫描失败: %s: %s" % (type(e).__name__, e))
+
     ok = not fails
     return {"ok": ok, "gcode": os.path.basename(gcode), "slots": slots,
             "accept_any": accept_any, "fails": fails, "warns": warns, "info": info,
-            "colour": colour}
+            "colour": colour, "sweep": sweep, "requires_empty_bed": requires_empty}
+
 
 
 def main():

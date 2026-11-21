@@ -495,7 +495,8 @@ def kx_rack_detail() -> dict:
 @mcp.tool
 def kx_send(file: str, slots: list[int] = [1], force_clean: bool = False,
             skip_vision: bool = False, force_repeat: bool = False,
-            expect: dict | None = None, accept_any: list[int] | None = None) -> dict:
+            expect: dict | None = None, accept_any: list[int] | None = None,
+            clean_confirmed: str = "") -> dict:
     """上传 + 启动打印。默认六查：忙碌/清盘/视觉床面/耗材映射/是否已经打过/换料碰撞。"""
     if not force_clean:
         dup = _dup_check(file, force_repeat=force_repeat)
@@ -555,6 +556,17 @@ def kx_send(file: str, slots: list[int] = [1], force_clean: bool = False,
                     "msg": "五项检查未通过: " + "; ".join(_r['fails']) + "。改切片或改摆放后重发, 不可强制发送。",
                     "fails": _r['fails'], "warns": _r['warns'], "info": _r['info']}
         _five_warns = _r['warns']
+        # 第十查: 扫床路径 + 空盘凭证 —— 2026-11-22 撞机后固化
+        # 起点段(z≈0.2 贴床直奔件起点)与归零/归位横扫不在件间抬Z的覆盖里：床上只要有残留就会被剐。
+        # 只要检查报告 requires_empty_bed，跳过视觉就必须给显式凭证，否则拒发。
+        if _r.get('requires_empty_bed'):
+            if (force_clean or skip_vision) and not str(clean_confirmed or "").strip():
+                return {"ok": False, "stage": "clean_unconfirmed",
+                        "msg": "本次开打要求空盘(扫床检查: 起点贴床直奔件起点)，但你要跳过视觉核查却未给空盘凭证。"
+                               "传 clean_confirmed 再发, 或去掉 force_clean/skip_vision 让视觉真的看一眼。",
+                        "sweep": _r.get('sweep')}
+            if str(clean_confirmed or "").strip():
+                _five_warns = list(_five_warns) + ["[空盘凭证] " + str(clean_confirmed).strip()]
     except FileNotFoundError:
         return {"ok": False, "stage": "five_check", "msg": "找不到 print_gate.py——没有五项检查就等于没有保护, 拒绝发送。"}
 

@@ -70,3 +70,39 @@ python scripts/print_gate.py X.gcode --slots 0,2
 # 明确放宽（仅用于复盘取证，不是日常操作）
 PRINT_GATE_HEIGHT_ROD=33 python scripts/print_gate.py X.gcode --slots 0,2
 ```
+
+## 2026-11-22 补丁：扫床路径检查（第六项）+ 空盘凭证（第十查）
+
+### 撞机现场
+大哥1 单里 `1.stl_1`(73.6mm) 先打、`1.stl_2`(37.5mm) 后打。打第二件时喷嘴降到 z≈0.4，
+热端/风扇罩顶部约 33mm，横移扫过时撞上床上 73.6mm 的绿件。
+`verify_switch_safety` 当时只建模「换料点」，**没有覆盖开工归位后贴床直奔件起点这一段**，
+于是「33mm 红线」在换料检查里成立、在开工段里完全不生效。
+
+### 新增 `print_gate.py::parse_sweep()`
+实测 gcode 里根本没有 G28（归零由固件/云端 `G9111` 段负责），第一条移动就是
+`G1 X15.802 Y34.946 F18000`（Z 仍为 0.2 层高）—— **归位后喷嘴贴着床面直奔件起点**，
+床上任何残留都会被剐。因此该项输出：
+
+- `start`：起点段移动次数、XY 覆盖、最低 Z、路径长度
+- `end`：最后一次挤出之后的停放段（本项目收尾只有 `M400/M140/M104/M107/M84`，无停放移动）
+- `requires_empty_bed`：起点段最低 Z < `CLEAR_HEIGHT_TO_ROD`(30) 即为 True
+
+判定规则：
+- 收尾段若 `len_mm > 5` 且最低 Z 低于件高 → **FAIL**（会剐本单自己的件）
+- 起点段 → WARN + 置 `requires_empty_bed`，由发送侧强制空盘
+
+### `kx_send` 第十查：clean_unconfirmed
+```python
+if _r.get('requires_empty_bed'):
+    if (force_clean or skip_vision) and not str(clean_confirmed or '').strip():
+        return {"ok": False, "stage": "clean_unconfirmed", ...}
+```
+跳过视觉（`force_clean=True` 或 `skip_vision=True`）时必须传
+`clean_confirmed="人工确认床空 03:12 已取件"`，否则拒发；带凭证则写进 `five_warns` 留痕。
+这条堵的正是 11-21 那次「视觉把地面黄胶带当成床上异物 → 我 force_clean 跳过 → 床空唯一兜底失效」。
+
+### 使用
+```bash
+python scripts/print_gate.py x.gcode --slots 0,3     # 第 6 行输出扫床路径与 requires_empty_bed
+```
