@@ -227,3 +227,16 @@ sidecar `<gcode>.colourmap.json` 是必需的一环：没有它只能核对 C，
 - `kx_send` 第十查：`requires_empty_bed=True` 时，`force_clean`/`skip_vision` 必须配 `clean_confirmed="人工确认床空 时间"`，
   否则 `stage=clean_unconfirmed` 拒发——不允许再靠"我看帧觉得空"绕过。
 - **上一单的件留在床上就别发下一单**：45.8mm 蓝件留在床上发白件，开工即剐。
+
+## 工具号(T)与单色件（2026-11-24 事故）
+
+- **gcode 的 `T n` 由 3mf 对象的 `extruder` 决定**，不是切片参数。`kx_send` 的 `slots` 是按 **T0、T1…** 顺序映射的。
+- 若单色件 gcode 里是 `T3`/`T6`（例如原工程有 7 个 filament），而 `slots=[3]` 只定义了 T0→槽4：
+  机器会跑满全程、云端记 100%，**但不出一根丝**。
+- 铁律：**发前 `grep -n "^T[0-9]" <gcode>`** —— 单色件必须只有 `T0`；多色件必须是连续 T0..Tn 且与 slots 长度一致。
+- 单色件修法：`python scripts/_patch_single.py <src.3mf> <dst.3mf> <hex>`（extruder 全压 1 + filament 压单值）
+  → `python scripts/slice_job.py ...` 重切 → 校验 `T=['0']`。
+- 若改到 T0 后**仍不出件**：不要再怀疑 gcode，改为查实体送料 → 面板「单通道出料 50mm」逐槽测试，
+  或把件换到已验证的槽位重发，用「换通道不换文件」定位。
+- 拉起 Orca：WMI `Win32_Process Create` 的 CommandLine **只写 exe 绝对路径**（带 `--start /b` 会秒退）。
+- `scan_token_wide.py` 的输出是**纯 list**，不是 dict。

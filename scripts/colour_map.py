@@ -131,7 +131,7 @@ def parse_gcode(path: str) -> dict:
                     continue
             m = _OBJ_RE.search(line)
             if m:
-                cur_obj = normalise_object(m.group(1))
+                cur_obj = m.group(1)
                 objects.setdefault(cur_obj, set()).add(cur_t)
                 continue
             if re.match(r";?EXCLUDE_OBJECT_END", line):
@@ -198,7 +198,7 @@ def gate(gcode: str, slots: list[int], table: dict[str, dict] | None = None,
     for name, ts in objs.items():
         if not ts:
             continue
-        exp = table.get(name)
+        exp = table.get(name) or table.get(normalise_object(name))
         if table and not exp:
             fails.append(f"A 件名不在表里: {name}（gcode 里出现但原始工程没有/名字不同）")
             continue

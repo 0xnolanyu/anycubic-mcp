@@ -106,3 +106,31 @@ if _r.get('requires_empty_bed'):
 ```bash
 python scripts/print_gate.py x.gcode --slots 0,3     # 第 6 行输出扫床路径与 requires_empty_bed
 ```
+
+---
+
+## 2026-11-24 补丁：工具号(T) 必须压到 T0 —— 单色件的「打完了但床上没件」
+
+### 现象
+单色件（茄子忍者粉、紫）发出后，云端 `progress=100`、`print_count` +1，但床上什么都没有，喷嘴也正常升温。
+
+### 根因
+gcode 里的工具号由 3mf 里对象的 `extruder` 决定，不是由切片参数决定：
+- 粉件 gcode 第 269 行是 `T3`，紫身是 `T6`（机器只有 T0–T3，T6 根本不存在）
+- 而 `kx_send(..., slots=[3])` 是按 **T0 → 槽4** 建立映射
+- 二者对不上：机器按 T3 选通道、映射表里没有 T3 的槽位 → 流程跑满但不出丝，云端仍记 100%
+
+对早期单件（绿茎/拔键器）能成功，是因为那些工程本来就只有一个 filament，gcode 自然是 `T0`。
+
+### 修法（已固化）
+1. `scripts/_patch_single.py <src.3mf> <dst.3mf> <hex>`：把 `Metadata/model_settings.config` 里所有
+   `key="extruder" value="N"` 改成 `value="1"`，并把 `project_settings.config` 的 `filament_*`
+   数组压成单值、`filament_colour` 设为目标色。
+2. 用 `scripts/slice_job.py` 对这个单色工程切片 → gcode 里只有 `T0`。
+3. 发送前机械校验：`grep -n "^T[0-9]" <gcode> | head`，必须只有 `T0`（多色件则必须是连续 T0..Tn）。
+
+### 顺带记录
+- **Orca 由 WMI 拉起时，CommandLine 只能用 exe 绝对路径**；带 `--start /b` 会秒退、无日志。
+- **`scan_token_wide.py` 的输出 JSON 是纯 list**（不是 dict，没有 `hits` 键），直接遍历即可。
+- 11-24 复测：改成 `T0` 后**仍然没有出件** → 工具号不是唯一原因，指向 **槽4/通道4 送料**；
+  该类现象先做面板「单通道出料 50mm」测试，再决定是否换槽重发。

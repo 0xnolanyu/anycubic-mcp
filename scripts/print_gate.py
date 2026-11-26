@@ -249,7 +249,6 @@ def check(gcode: str, slots: list[int], accept_any: list[int] | None = None,
             "colour": colour, "sweep": sweep, "requires_empty_bed": requires_empty}
 
 
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("gcode")
@@ -277,6 +276,13 @@ def main():
     for o in r["info"]["order"]:
         print(f"              {o['i']}. {o['name']} T{o['t']} 高 {o['zmax']}mm 支撑 {o['support']}段 XY{o['xy']}")
     print(f"5) 颜色       : {r['colour'].get('ok')}  {r['colour'].get('colours')}  槽源={r['colour'].get('rack_source')}")
+    sw = r.get("sweep") or {}
+    st, en = sw.get("start") or {}, sw.get("end") or {}
+    print(f"6) 扫床路径   : 起点 {st.get('n')}次移动 最低Z={st.get('zmin')} "
+          f"X{st.get('xmin')}~{st.get('xmax')} Y{st.get('ymin')}~{st.get('ymax')} | "
+          f"收尾 {en.get('len_mm')}mm Z={en.get('zmin')}")
+    print(f"               → 需要空盘开打: {'是' if r.get('requires_empty_bed') else '否'}"
+          f"（是则跳过视觉必须给 clean_confirmed 凭证）")
     for w in r["warns"]:
         print("  WARN " + w)
     for f_ in r["fails"]:
